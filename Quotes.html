@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <title>Stock Quotes</title>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Andy Parham">
+    <meta name="date" content="September 2016">
+    <meta name="description" content="Real Time Stock Quoter ">
+    <meta name="keywords" content="HTML,CSS,JSON,JavaScript,AngularJS">
+  </head>
+
+ 
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+<script  src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.3/angular.min.js"> </script> 
+<script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-animate.js"></script>
+
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+ #input1
+    {
+     font-size:10pt;
+     height:20px;
+     width:15px;
+    
+    }
+
+
+#divHeader1 div {
+  float: left;
+  margin: 0 2em 0 0em;
+}
+
+#divHeader2 div {
+  float: right;
+  margin: 0 0em 0 0em;
+}
+
+ #div1 div {
+  float: left;
+}
+
+#cb1 {
+  float: left;
+    width: 20px;
+    text-align: right;
+    margin-right: 0.5em;
+}
+
+#div_main {
+ padding-top: 3px;
+ width: 95%;
+}
+
+#dateTime {
+ color: black;
+ font-weight: bold;
+ font-size: 20px;
+ float: right;
+
+}
+
+#updateMsg {
+ color: red;
+ font-weight: bold;
+ font-size: 20px;
+ padding-left: 8px;
+ 
+}
+
+#table_quotes {
+    border-collapse: collapse;
+	border: 1px solid black;
+    width: 100%;
+    margin: auto;
+
+}
+
+#tr_quotes {
+    font-weight: bold;
+	color: bold;
+}	
+
+#td_quotes {
+    padding-top: 8px;
+    padding-bottom: 8px;
+	padding-left: 8px;
+    padding-right: 8px;
+}
+
+.item { }
+
+.item.ng-move,
+.item.ng-enter,
+.item.ng-leave {
+  -webkit-transition:all linear 0.5s;
+  transition:all linear 1.5s;
+}
+
+.item.ng-leave.ng-leave-active,
+.item.ng-move,
+.item.ng-enter {
+  opacity:0;
+}
+
+.item.ng-leave,
+.item.ng-move.ng-move-active,
+.item.ng-enter.ng-enter-active {
+  opacity:1;
+}
+</style>
+
+<script>
+
+// works best in chrome and firefox - developed in chrome browser version 54
+
+  var app = angular.module("app", ['ngAnimate']);
+  pollInterval = 5000;   // interval of stock quoter service call in milliseconds 
+  var model = {user: "Andy"};
+  var first = true;
+  
+     // need this for calculation of $Value
+     // Note! that the shares object must exist even if nothing is in it in wich case it would be: var shares = {};
+     var shares = [{"symbol": "MU" , "shares": 6000, "cost": 14.09}, 
+                {"symbol": "AMD" , "shares": 6000, "cost": 3.55},
+				{"symbol": "BOJA" , "shares": 1000, "cost": 21.75},
+				{"symbol": "CREE" , "shares": 1000, "cost": 30.00}];
+      
+     // for tracking options, simple calculation of option price based on price of underlying stock minus strike price
+     // no premium is factored in.  
+     // Note!!! that if not using options this object still has to exist like: var options = {};
+	 var options = [{"t": "Option: MU strike $10, expire: 1/19/2018", "symbol": "MU", "shares": 2000, 
+                          "cost": 5.5, "type": "OPT", "strike": 10, "expiration": "1/19/2018"}, 
+                {"t": "Option: MU strike $8, expire: 1/19/2018" ,  "symbol": "MU", "shares": 2000, 
+                          "cost": 6, "type": "OPT", "strike": 8, "expiration": "1/29/2018"},
+				{"t": "Option: MU strike $15, expire: 1/20/2017" , "shares": 3000,  "symbol": "MU", 
+                          "cost": 16.5, "type": "OPT", "strike": 15, "expiration": "1/20/2017"},
+				{"t": "Option: AAPL stk $70, expires on 1/20/2017" , "shares": 1000,  "symbol": "AAPL", 
+                          "cost": 56, "type": "OPT", "strike": 70, "expiration": "1/20/2017"},
+				{"t": "Option: AAPL stk $80, expires on 1/20/2017" , "shares": 1000,  "symbol": "AAPL", 
+                          "cost": 54, "type": "OPT", "strike": 80, "expiration": "1/20/2017"}];
+        
+     // cash on-hand
+     // Note!  The cash object must exist exactly as shown below.  If your cash is ZERO then
+     // just change the "l" value below to 0 and this way no cash entry will display in the table
+     var cash = [{"t": "CASH" , "shares": "1", "l": 23275,  "type": "CASH"}]; 
+
+     // These symbols will be used in the service call to the stock quotation service
+     var symbols = [".IXIC", ".DJI", ".INX", "TWTR", "AAPL", "AMD", "MU", "CREE", "BOJA"];
+	
+//        var symbols = ["CSCO", "GOOG", "AMZN", "ORCL", "IBM", "YHOO", "SPWR", "A", "ASDF", "INTC"
+//                       ,"COST", "NKE", "AMAT", "TWTR", "AAPL", "AMD", "MU", "CREE", "BOJA"
+//                       ,"FEYE", "FB", "CELG", "BIDU", "BABA"
+ //                       ,"CBR", "XON", "WEN", "SHAK", "OLED", "P", "PANW", "GILD", "FFIV"];
+
+     // for display of company name associated with ticker
+     // AJAX call will populate this object
+     var companyName = {};
+  
+
+
+ app.service('SRV_getQuotes', function($http, $q, $rootScope){
+	   	  this.getQ = function($scope) {
+ 
+    
+  $scope.notification = "Updating..."; 
+ 
+    var url1 = 'https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20yahoo.finance.quotes%20where%20symbol%20in%20(%22'
+    var url2 = '%22)&format=json&diagnostics=true&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback='   
+    var url3 = "";
+
+    // If first time then get Company Names for all ticker symbols
+    if (first == true) {  
+    for (i = 0; i < symbols.length; i++) { 
+      if (symbols[i].substring(0,1) != '.') {  
+            url3 = url1 + symbols[i] + url2;
+            $.ajax({url: url3})
+            .then(function(data2) {
+               var coName = data2.query.results.quote.Name;
+               coName = coName.replace("Common Stock", "");
+               var symbol = data2.query.results.quote.Symbol;
+               if (coName.length > 30)
+                  coName = coName.substring(0,30);
+               var pos = coName.indexOf(",");
+               if (pos > -1)
+                  companyName[symbol] = coName.substring(0,pos);
+               else companyName[symbol] = coName;
+            })  
+    }}}
+
+
+  first = false;
+  var url = buildURL();
+ 
+ // Get stock Quotes every {{pollInterval}} seconds
+ $.ajax({
+    url: url,
+    type: "GET",
+    async: true,
+    dataType: 'jsonp'
+}).then(function(data) {
+    $scope.notification = "";
+    parseData(data, $scope.mode);
+    model.quotes = data;
+    $scope.model = model;
+    $scope.$apply();
+ })
+ .fail(function() {
+    alert( "Ajax failed getting quotes" );
+  });
+ 
+}});	
+	
+	
+
+    // Build URL (for quoter service) from the symbols array 
+	function buildURL() {
+    var url = 'http://finance.google.com/finance/info?client=ig&q=NASDAQ: ' 
+    var tickerList = ""; 
+      for (i = 0; i < symbols.length; i++) { 
+        tickerList = tickerList + "," + symbols[i] + ", ";
+      }
+     return url + tickerList;
+    }	
+
+
+
+	// parse results from stock quotes call
+	function parseData(data, mode) {
+
+       for (i = 0; i < data.length; i++) { 
+       
+		 data[i].l = (data[i].l).replace(",", "" );
+		 data[i].l = Number(data[i].l);   // last price
+	     data[i].c = Number(data[i].c);   // $ change
+		 data[i].cp = Number(data[i].cp); // % change
+       
+		 if (data[i].t.substring(0,1) == ".")
+		     data[i].type = "AVG";
+	     else {
+		     data[i].type = "STK";
+             if (!angular.isUndefined(companyName[data[i].t]))
+                  data[i].coName = " - " + companyName[data[i].t];   // add company name  
+         }
+         
+         var pos = data[i].t.indexOf(".IXIC");
+         if (pos > -1) 
+	        data[i].t = data[i].t + "      (Nasdaq)";
+         var pos = data[i].t.indexOf(".DJI");
+         if (pos > -1) 
+	        data[i].t = data[i].t + "      (Dow Jones)";
+         var pos = data[i].t.indexOf(".INX");
+         if (pos > -1) 
+	        data[i].t = data[i].t + "      (S&P)";
+
+         // get shares and cost	from arrays declared above
+		 for (j = 0; j < shares.length; j++) { 
+		 	 if (shares[j].symbol == data[i].t) {
+		        data[i].shares = Number(shares[j].shares);                      // # shares 
+			    data[i].cost = Number(shares[j].cost);                          // average cost per share
+				data[i].dayGainLoss = data[i].shares * data[i].c                // calc $gain/loss for day
+                data[i].gainLoss =  (data[i].l - shares[j].cost)                // calc total $gain/loss
+           	  }}
+		 	 	 
+		 // strip out comma from number
+         if (isNaN(data[i].el)) 
+            { (data[i].el) = "";  }  
+		 else 
+		    {(data[i].el) = (data[i].el).replace(",", "" );} 	
+        
+		 // format date/time
+		 var pos = (data[i].ltt).indexOf("PM");
+		 if (pos < 0)
+		    var pos = (data[i].ltt).indexOf("AM"); 
+		 (data[i].ltt) = (data[i].ltt).substring(0,pos+2);
+		 if (typeof data[i].elt === "undefined") {}
+		  else 
+		    {
+		     var pos2 = (data[i].elt).indexOf("PM");
+			 if (pos2 < 0)
+			    var pos2 = (data[i].elt).indexOf("AM"); 
+		     (data[i].elt) = (data[i].elt).substring(8,pos2+2);
+		    }
+        
+            // Extended trading
+            if (mode == "Extended Trading" &&  data[i].type != "AVG") {
+              data[i].l = data[i].el;   // last price
+	          data[i].c = data[i].ec;   // $ change
+		      data[i].cp = data[i].ecp; // % change
+              data[i].ltt = data[i].elt; // % date
+              data[i].dayGainLoss = data[i].shares * data[i].ec;  
+              data[i].gainLoss = 0;  
+            }
+        }
+
+	     // calculate the price of the option - price of underlying stock minus strike value
+         // note that no premium is included in this calculation
+	     for (i = 0; i < options.length; i++) {
+           
+            if (options[i].t.length > 50)
+            options[i].t = options[i].t.substring(0,50);
+		    var idx = options[i].t.indexOf("-");
+	        var symbol = options[i].symbol;
+			var strike = options[i].strike;
+			options[i].l = 0;
+			for (j = 0; j < data.length; j++) {
+                if (data[j].t == symbol)	{  
+                    options[i].l = data[j].l - strike;                      // derive last price for options
+                    options[i].dayGainLoss = data[j].c * options[i].shares	// calc theoritical $gain/loss for day	
+                    options[i].gainLoss = (options[i].l - options[i].cost) 
+                    
+                } 
+	           if (options[i].l < 0)  
+			       options[i].l = 0;
+			 }
+
+             if (mode == "Extended Trading")  
+                 options[i].gainLoss = 0;    
+		  
+        	data.push(options[i]);
+            }
+
+          // CASH On Hand !!!
+            if (cash[0].l != 0)
+		       data.push(cash[0]);
+    }
+	
+	
+  app.filter("filterStock", function () {
+            
+			return function (items, stock, options, cash, nasdaq, dow, sp, $scope) {
+			    var resultArr = [];
+			    
+                angular.forEach(items, function (item, idx) {
+          			 
+                if (stock == true) {
+			      if (item.type == "STK")
+			         resultArr.push(item);
+				}
+				
+				 if (options == true) {
+			      if (item.type == "OPT")
+			         resultArr.push(item);
+				}
+
+                 if (cash == true) {
+			      if (item.type == "CASH")
+			         resultArr.push(item);
+				}
+             
+                if (nasdaq == true) {
+			       var pos = (item.t).indexOf(".IXIC");
+                     if (pos > -1) 
+			            resultArr.push(item);
+				}
+
+                 if (dow == true) {
+			       var pos = (item.t).indexOf(".DJI");
+                     if (pos > -1) 
+			            resultArr.push(item);
+				}
+                
+                if (sp == true) {
+			       var pos = (item.t).indexOf(".INX");
+                     if (pos > -1) 
+			            resultArr.push(item);
+				}
+
+                });
+				
+	                return resultArr;
+            }
+			
+        });	
+	
+		
+  app.service('SRV_getDateTime', function(){
+  this.getDateTime = function($scope) {
+  
+           var date = new Date(); 	
+		   var secs = date.getSeconds();
+		   var mins = date.getMinutes();
+		   if (secs < 10) {secs = "0" + secs};
+		   if (mins < 10) {mins = "0" + mins};
+           var datestring = (date.getMonth()+1) + "/" + date.getDate()  +  "/" + date.getFullYear() + 
+                " - " +    date.getHours() + ":" + mins + ":" + secs;
+           $scope.curDateTime =  datestring;
+  
+  }
+ });		
+
+
+     app.directive("myDateTime", function() {
+         
+          return {
+            template : '<span>{{curDateTime}}</span>',
+	    	link: function (scope, element, attrs) {
+            }
+     };
+});
+	
+	
+
+
+	app.filter("calcSum", function () {  
+        return function (data, key, key2, scope) {
+      
+	    if (angular.isUndefined(data) && angular.isUndefined(key))
+            return 0;        
+       
+          var sum = 0;
+       
+          angular.forEach(data,function(v,k){
+		    if (isNaN(v[key])) {}
+			else {
+			
+            var shares = v[key2];
+            if  (!angular.isUndefined(shares)) {
+              var value = (v[key]);
+              shares = parseInt(shares);
+              if (key == "dayGainLoss")
+                 shares = 1;
+         	  sum = sum + (value * shares);
+ 			}
+        }});
+   
+      
+        if (key == "dayGainLoss")
+          scope.totalGainLossDay = sum;
+        else if (key == "cost") 
+          scope.totalCost = sum;
+        else if (key == "l")
+           scope.totalValue = sum;
+ 
+         if (scope.mode == "Extended Trading") 
+             if (key != "dayGainLoss")
+                 sum = 0;
+        return sum;
+    }
+})
+	
+	
+app.controller('myCtrl', function($scope, $interval, $window, SRV_getQuotes, SRV_getDateTime) {
+    $scope.model = model;
+    $scope.modes = ["Regular Trading", "Extended Trading"];
+	$scope.notification = "Updating..."; 
+	$scope.cash  = parseInt(cash[0].l);
+    $scope.fontSize;
+    $scope.pollInterval = pollInterval;
+    
+
+    $window.onload = function(e) {SRV_getQuotes.getQ($scope);}
+    $scope.getQuotes = function() { 
+        SRV_getQuotes.getQ($scope)  // call service
+     };
+
+     $scope.getDateTime = function() { 
+        SRV_getDateTime.getDateTime($scope)  
+     };
+
+     $interval($scope.getQuotes, $scope.pollInterval);
+
+     $interval($scope.getDateTime, 1000);  
+     
+	    $scope.getColor = function(value){
+		   var color = {'color':'green', 'font-weight':'bold'};
+		   if (value < 0)
+	           color = {'color':'red', 'font-weight':'bold'};
+		   return color;
+        }
+		
+		
+		 $scope.getColor_totalgainloss = function(){
+		   var color = {'color':'green', 'font-weight':'bold'};
+           var total = $scope.totalValue - $scope.totalCost - $scope.cash;
+           if (total < 0)
+	           color = {'color':'red', 'font-weight':'bold'};
+           if ($scope.mode == "Extended Trading") 
+               var color = {'color':'green', 'font-weight':'bold'};
+		   return color;
+        }
+		
+
+		 $scope.getColor_totalgainlossDay = function(){
+		 
+		   var color = {'color':'green', 'font-weight':'bold'};
+	       if ($scope.totalGainLossDay < 0) 
+	           color = {'color':'red', 'font-weight':'bold'};
+		   return color;
+        }
+ 
+	
+        $scope.getFontSize = function(){
+             return $scope.fontSize;
+        }
+		
+		$scope.changeMode = function(mode){
+		   SRV_getQuotes.getQ($scope)  // call service  
+         }
+ 
+        $scope.order = function() {
+	           return $scope.order = 'name';
+         }; 
+		   
+	    $scope.setSortOrder = function(field) {
+	          $scope.sortDir = !$scope.sortDir; 
+	          return $scope.order = field;
+        }; 
+ 
+});			 
+</script>
+
+ 
+<div id="div_main"  ng-app="app"  class="container-fluid">
+<div ng-controller = "myCtrl">
+
+<div width=100%>
+<div  id="divHeader1">
+    
+     <div>
+       <div >
+          <input id="cb1" type="checkbox" ng-model="optStock"    name="stock"   value="stock" ng-init="optStock=true">Stock<br>
+          <input id="cb1" type="checkbox" ng-model="optOptions"  name="options" value="options"  ng-init="optOptions=true"> Options<br>
+       </div>
+       <div >
+          <input id="cb1" type="checkbox" ng-model="optNasdaq"    name="nasdaq"   value="nasaq" ng-init="optNasdaq=true">Nasdaq<br>
+          <input id="cb1" type="checkbox" ng-model="optDow"  name="dow" value="dow"  ng-init="optDow=true">Dow<br>
+       </div>
+       <div>
+          <input id="cb1" type="checkbox" ng-model="optSP"     name="sp" value="sp"  ng-init="optSP=true"> S&P<br> 
+          <input id="cb1" type="checkbox" ng-model="optCash"     name="cash" value="cash"  ng-init="optCash=true"> Cash<br>
+       </div>
+     </div>
+     <div>
+        <select name="singleSelect" ng-model="mode" ng-options="x for x in modes" ng-change="changeMode(mode)" ng-init="mode='Regular Trading'" ></select>
+     </div>
+      <div>
+         Table Size:  <input id="input1" type="number" ng-model="fontSize" min="1" max="40" ng-init="fontSize=15" style="width:45px">
+      </div>
+ </div>
+  <div  id="divHeader2">
+      <my-Date-Time id="dateTime"></my-Date-Time>
+  </div>   
+
+
+</div>
+
+<table id = "table_quotes" class="table-striped" >
+    
+ <thead>
+ <tr  ng-style="{'background-color':'#d3d3d3', 'font-weight':'bold', 'font-size':getFontSize()}">
+      <td  id="td_quotes" align="left"> <a href=""  ng-click="setSortOrder('t')"> Symbol &nbsp</a>
+         <input type="search" name="search" placeholder="Filter By Symbol" size=14 ng-model="search.t">
+      </td>         
+	  <td  id="td_quotes" align="right" ng-show="mode=='Regular Trading'">Price$</td>     
+      <td  id="td_quotes" align="right" ng-show="mode=='Extended Trading'">Price$/Ext</td>         
+	  <td  id="td_quotes" align="right" ng-show="mode=='Regular Trading'">Change$</td>
+      <td  id="td_quotes" align="right" ng-show="mode=='Extended Trading'">Change$/Ext</td>         
+	  <td  id="td_quotes" align="right" ng-show="mode=='Regular Trading'"> Change%</td>
+      <td  id="td_quotes" align="right" ng-show="mode=='Extended Trading'">Change%/Ext</td>         
+	  <td  id="td_quotes" align="right">Time</td>       
+      <td  id="td_quotes" align="right">Shares</td>  
+      <td  id="td_quotes" align="right">Cost$</td>  	  
+      <td  id="td_quotes" align="right">Value$</td>   
+      <td  id="td_quotes" align="right">Total G/L$</td>   	  
+	  <td  id="td_quotes" align="right">Day G/L$</td>   	  
+ </tr>
+</thead>
+
+<tbody >			
+<tr id="totalRow" ng-style="{'font-weight':'bold', 'font-size':getFontSize(), 'color':'blue', 'background-color':'#f0f0f0'}">
+   <td id="updateMsg" align="left" ng-style="{'color':'red'}">{{notification}}</td>
+   <td id="td_quotes" align="right"></td>
+   <td id="td_quotes" align="right"></td>
+   <td id="td_quotes" align="right"></td>
+   <td id="td_quotes" align="right"></td>
+   <td id="td_quotes" align="right" ng-style="{'font-size':getFontSize()+2}">Totals:</td>
+   <td id="td_quotes" align="right" ng-style="{'color':'green', 'font-weight':'bold'}"> 
+                          {{myFilteredList | calcSum:'cost':'shares':this |  currency:undefined:0}}</td> 
+   <td id="td_quotes" align="right" ng-style="{'color':'green', 'font-weight':'bold'}"> 
+                          {{myFilteredList | calcSum:'l':'shares':this |  currency:undefined:0}}</td>
+   <td id="td_quotes" align="right" ng-style=getColor_totalgainloss()>
+                          {{(myFilteredList | calcSum:'gainLoss':'shares':this) |  currency:undefined:0}}</td>
+   <td id="td_quotes" align="right" ng-style=getColor_totalgainlossDay()>
+                          {{myFilteredList | calcSum:'dayGainLoss':'shares':this |  currency:undefined:0}}</td></td> 
+   
+ </tr> 
+
+ <tr   id="tr_quotes" ng-repeat="item in myFilteredList  = (model.quotes | 
+          filterStock:optStock:optOptions:optCash:optNasdaq:optDow:optSP:this | orderBy:order:sortDir | filter:search)"  
+          ng-style="{'font-size':getFontSize()}">
+   <td id="td_quotes" align="left">{{item.t}}{{item.coName}}</td>
+   <td id="td_quotes" align="right">{{item.l | number:2}}  </td>
+   <td id="td_quotes" align="right" ng-style=getColor(item.c)>{{item.c  | number:2 }}</td>
+   <td id="td_quotes" align="right" ng-style=getColor(item.cp)>{{item.cp | number:2}}</td>
+   <td id="td_quotes" align="right">{{item.ltt}}</td>
+ 
+   <td id="td_quotes" align="right" >{{item.shares}}</td>
+   
+   <td id="td_quotes" align="right" ng-show="mode=='Regular Trading'"> {{item.shares * item.cost | currency:undefined:0}}</td> 
+   <td id="td_quotes" align="right" ng-show="mode=='Extended Trading'"></td>
+   <td id="td_quotes" align="right"  ng-show="mode=='Regular Trading'">{{item.shares * item.l | currency:undefined:0}}</td>
+   <td id="td_quotes" align="right" ng-show="mode=='Extended Trading'"></td>
+   <td id="td_quotes" align="right" ng-style=getColor(item.gainLoss)  ng-show="mode=='Regular Trading'">
+                                    {{item.shares * item.gainLoss | currency:undefined:0}}</td>
+   <td id="td_quotes" align="right" ng-show="mode=='Extended Trading'"></td>
+   <td id="td_quotes" align="right" ng-style=getColor(item.dayGainLoss)>{{(item.dayGainLoss) | currency:undefined:0}}</td>
+  
+ </tr> 
+ 
+ 
+ </tbody> 
+ 
+</table>
+
+  </div>
+</div>
+  
+</body>
+</html> 
