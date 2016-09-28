@@ -128,38 +128,27 @@
   
      // need this for calculation of $Value
      // Note! that the shares object must exist even if nothing is in it in wich case it would be: var shares = {};
-     var shares = [{"symbol": "MU" , "shares": 6000, "cost": 14.09}, 
-                {"symbol": "AMD" , "shares": 6000, "cost": 3.55},
-				{"symbol": "BOJA" , "shares": 1000, "cost": 21.75},
-				{"symbol": "CREE" , "shares": 1000, "cost": 30.00}];
+     var shares = [{"symbol": "MU" , "shares": 1000, "cost": 35}, 
+                {"symbol": "AAPL" , "shares": 1000, "cost": 50},
+				{"symbol": "GOOG" , "shares": 100, "cost": 550},
+				{"symbol": "ORCL" , "shares": 1000, "cost": 35}];
       
      // for tracking options, simple calculation of option price based on price of underlying stock minus strike price
      // no premium is factored in.  
      // Note!!! that if not using options this object still has to exist like: var options = {};
 	 var options = [{"t": "Option: MU strike $10, expire: 1/19/2018", "symbol": "MU", "shares": 2000, 
-                          "cost": 5.5, "type": "OPT", "strike": 10, "expiration": "1/19/2018"}, 
-                {"t": "Option: MU strike $8, expire: 1/19/2018" ,  "symbol": "MU", "shares": 2000, 
-                          "cost": 6, "type": "OPT", "strike": 8, "expiration": "1/29/2018"},
-				{"t": "Option: MU strike $15, expire: 1/20/2017" , "shares": 3000,  "symbol": "MU", 
-                          "cost": 16.5, "type": "OPT", "strike": 15, "expiration": "1/20/2017"},
-				{"t": "Option: AAPL stk $70, expires on 1/20/2017" , "shares": 1000,  "symbol": "AAPL", 
-                          "cost": 56, "type": "OPT", "strike": 70, "expiration": "1/20/2017"},
-				{"t": "Option: AAPL stk $80, expires on 1/20/2017" , "shares": 1000,  "symbol": "AAPL", 
+                          "cost": 2.5, "type": "OPT", "strike": 10, "expiration": "1/19/2018"}, 
+                 	{"t": "Option: AAPL stk $80, expires on 1/20/2017" , "shares": 1000,  "symbol": "AAPL", 
                           "cost": 54, "type": "OPT", "strike": 80, "expiration": "1/20/2017"}];
         
      // cash on-hand
      // Note!  The cash object must exist exactly as shown below.  If your cash is ZERO then
      // just change the "l" value below to 0 and this way no cash entry will display in the table
-     var cash = [{"t": "CASH" , "shares": "1", "l": 23275,  "type": "CASH"}]; 
+     var cash = [{"t": "CASH" , "shares": "1", "l": 1000,  "type": "CASH"}]; 
 
      // These symbols will be used in the service call to the stock quotation service
-     var symbols = [".IXIC", ".DJI", ".INX", "TWTR", "AAPL", "AMD", "MU", "CREE", "BOJA"];
+     var symbols = [".IXIC", ".DJI", ".INX", "MU", "AAPL", "GOOG", "ORCL"];
 	
-//        var symbols = ["CSCO", "GOOG", "AMZN", "ORCL", "IBM", "YHOO", "SPWR", "A", "ASDF", "INTC"
-//                       ,"COST", "NKE", "AMAT", "TWTR", "AAPL", "AMD", "MU", "CREE", "BOJA"
-//                       ,"FEYE", "FB", "CELG", "BIDU", "BABA"
- //                       ,"CBR", "XON", "WEN", "SHAK", "OLED", "P", "PANW", "GILD", "FFIV"];
-
      // for display of company name associated with ticker
      // AJAX call will populate this object
      var companyName = {};
